@@ -10,14 +10,11 @@ export default function MainScene() {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87ceeb);
     const camera = new THREE.PerspectiveCamera(
-      75,
+      50,
       window.innerWidth / window.innerHeight,
       0.1,
       1000,
     );
-
-    camera.position.set(0, 2, 5);
-    camera.lookAt(0, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
 
@@ -26,12 +23,17 @@ export default function MainScene() {
 
     camera.position.set(0, 1.5, 4);
 
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.enableZoom = true;
+
     // LUCES
     const light = new THREE.DirectionalLight(0xffffff, 2);
     light.position.set(5, 5, 5);
     scene.add(light);
 
-    const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+    const ambient = new THREE.AmbientLight(0xffffff, 1);
     scene.add(ambient);
 
     // LOADER
@@ -46,16 +48,12 @@ export default function MainScene() {
 
       model.position.sub(center);
 
-      const controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true; // movimiento suave
-      controls.dampingFactor = 0.05;
-      controls.enableZoom = true; // permitir zoom
-
       console.log("Modelo cargado");
     });
 
     function animate() {
       requestAnimationFrame(animate);
+      controls.update();
       renderer.render(scene, camera);
     }
 
