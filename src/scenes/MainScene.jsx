@@ -2,9 +2,13 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { useEffect, useRef } from "react";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import CalculatorEngine from "./../calculator/CalculatorEngine";
 
 export default function MainScene() {
   const mountRef = useRef(null);
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+  const engine = useRef(new CalculatorEngine());
 
   useEffect(() => {
     const scene = new THREE.Scene();
@@ -36,6 +40,8 @@ export default function MainScene() {
     const ambient = new THREE.AmbientLight(0xffffff, 1);
     scene.add(ambient);
 
+    const buttons = [];
+
     // LOADER
     const loader = new GLTFLoader();
     loader.load("/calculator.glb", (gltf) => {
@@ -48,8 +54,66 @@ export default function MainScene() {
 
       model.position.sub(center);
 
+      model.traverse((child) => {
+        if (child.isMesh && child.name.startsWith("btn_")) {
+          buttons.push(child);
+        }
+      });
+
       console.log("Modelo cargado");
     });
+
+    function onClick(event) {
+      const rect = renderer.domElement.getBoundingClientRect();
+
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+
+      const intersects = raycaster.intersectObjects(buttons);
+
+      if (intersects.length > 0) {
+        const clicked = intersects[0].object;
+
+        if (clicked.name.startsWith("btn_")) {
+          const value = clicked.name.replace("btn_", "");
+
+          let output;
+
+          if (!isNaN(value)) {
+            output = engine.current.inputNumber(value);
+          } else if (value === "plus") {
+            engine.current.setOperator("+");
+            return;
+          } else if (value === "minus") {
+            engine.current.setOperator("-");
+            return;
+          } else if (value === "equals") {
+            output = engine.current.calculate();
+          } else if (value === "clear") {
+            output = engine.current.clear();
+          } else if (value === "dot") {
+            output = engine.current.inputDecimal();
+          } else if (value === "multiply") {
+            engine.current.setOperator("*");
+            return;
+          } else if (value === "divide") {
+            engine.current.setOperator("/");
+            return;
+          } else if (value === "mplus") {
+            output = engine.current.memoryAdd();
+            console.log("Memoria:", engine.current.memory);
+          } else if (value === "mc") {
+            output = engine.current.memoryClear();
+            console.log("Memoria borrada");
+          }
+          console.log("Pantalla:", output);
+        }
+      }
+    }
+
+    renderer.domElement.addEventListener("click", onClick);
 
     function animate() {
       requestAnimationFrame(animate);
@@ -60,6 +124,7 @@ export default function MainScene() {
     animate();
 
     return () => {
+      renderer.domElement.removeEventListener("click", onClick);
       mountRef.current.removeChild(renderer.domElement);
     };
   }, []);
