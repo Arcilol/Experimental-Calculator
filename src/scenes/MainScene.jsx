@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { Sky } from "three/examples/jsm/objects/Sky.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { useEffect, useRef } from "react";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
@@ -14,7 +15,7 @@ export default function MainScene() {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87ceeb);
     const camera = new THREE.PerspectiveCamera(
-      50,
+      40,
       window.innerWidth / window.innerHeight,
       0.1,
       1000,
@@ -33,14 +34,39 @@ export default function MainScene() {
     controls.enableZoom = true;
 
     // LUCES
-    const light = new THREE.DirectionalLight(0xffffff, 2);
-    light.position.set(5, 5, 5);
-    scene.add(light);
+    const hemiLight = new THREE.HemisphereLight(
+      0xffffff, // color cielo
+      0x444444, // color suelo
+      1.2, // intensidad
+    );
+    scene.add(hemiLight);
 
-    const ambient = new THREE.AmbientLight(0xffffff, 1);
-    scene.add(ambient);
+    // 🔆 Luz principal (Key Light)
+    const keyLight = new THREE.DirectionalLight(0xffffff, 2);
+    keyLight.position.set(5, 8, 5);
+    keyLight.castShadow = true;
+    scene.add(keyLight);
+
+    // 💡 Luz de relleno (Fill Light)
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    fillLight.position.set(-5, 4, -5);
+    scene.add(fillLight);
+
+    // ✨ Luz trasera (Rim Light)
+    const rimLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    rimLight.position.set(0, 5, -8);
+    scene.add(rimLight);
 
     const buttons = [];
+    let screenMesh = null;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 512;
+    canvas.height = 256;
+
+    const context = canvas.getContext("2d");
+
+    const texture = new THREE.CanvasTexture(canvas);
 
     // LOADER
     const loader = new GLTFLoader();
@@ -51,18 +77,34 @@ export default function MainScene() {
       const box = new THREE.Box3().setFromObject(model);
       const center = new THREE.Vector3();
       box.getCenter(center);
-
       model.position.sub(center);
 
       model.traverse((child) => {
-        if (child.isMesh && child.name.startsWith("btn_")) {
-          buttons.push(child);
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+          if (child.name.startsWith("btn_")) {
+            buttons.push(child);
+          }
+
+          if (child.name === "pantalla") {
+            screenMesh = child;
+
+            screenMesh.material = new THREE.MeshStandardMaterial({
+              map: texture,
+              roughness: 0.6,
+              metalness: 0.1,
+            });
+
+            updateDisplay("0");
+          }
         }
       });
 
       console.log("Modelo cargado");
     });
 
+    // RECONOCIMIENTO DE BOTONES
     function onClick(event) {
       const rect = renderer.domElement.getBoundingClientRect();
 
@@ -109,11 +151,28 @@ export default function MainScene() {
             console.log("Memoria borrada");
           }
           console.log("Pantalla:", output);
+
+          if (output !== undefined) {
+            updateDisplay(output);
+          }
         }
       }
     }
 
     renderer.domElement.addEventListener("click", onClick);
+
+    function updateDisplay(text) {
+      context.fillStyle = "black";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+
+      context.fillStyle = "lime";
+      context.font = "80px Arial";
+      context.textAlign = "right";
+      context.textBaseline = "middle";
+      context.fillText(text, canvas.width - 20, canvas.height / 2);
+
+      texture.needsUpdate = true;
+    }
 
     function animate() {
       requestAnimationFrame(animate);
